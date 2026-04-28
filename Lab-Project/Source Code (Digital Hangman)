@@ -48,7 +48,8 @@ void setup() {
 }
 
 void loop() {
-  if (digitalRead(resetButtonPin) == LOW) {
+//reset button
+  if (digitalRead(resetButtonPin) == LOW) {    //if pressed then restarts the game
     delay(50);
     if (digitalRead(resetButtonPin) == LOW) {
       resetGame();
@@ -59,16 +60,17 @@ void loop() {
   if (gameOver) return;
 
   if (timerRunning) {
-    unsigned long elapsed = millis() - turnStart;
+//timer countdown
+    unsigned long elapsed = millis() - turnStart;      //if time finishes
     if (elapsed >= TURN_LIMIT_MS) {
-      handleTimeout();
+      handleTimeout();                            //this func is called
       return;
     }
   }
 
-  if (Serial.available() > 0) {
-    char guess = toupper((char)Serial.read());
-    while (Serial.available() > 0) Serial.read(); 
+  if (Serial.available() > 0) {   //reads serial input
+    char guess = toupper((char)Serial.read());      //converts the input letter to upper case
+    while (Serial.available() > 0) Serial.read();  
     if (isAlpha(guess)) {
       processGuess(guess);
     }
@@ -88,18 +90,13 @@ void startNewGame() {
   startTimer();
 }
 
-void processGuess(char guess) {
-  if (guessedLetters.indexOf(guess) >= 0) {
-    lcd.setCursor(0, 1);
-    lcd.print("Already used: ");
-    lcd.print(guess);
+void processGuess(char guess) {                 
+  if (guessedLetters.indexOf(guess) >= 0) {                          //if true then a buzzer sound
     tone(buzzerPin, 600, 100);
-    delay(800); // Give time to read on small screen
-    printStatus();
+    delay(800);                                         // Give time to read on small screen
     return;
   }
 
-  guessedLetters += guess;
   bool correct = false;
   for (int i = 0; i < (int)secretWord.length(); i++) {
     if (secretWord[i] == guess && guessed[i] == '_') {
