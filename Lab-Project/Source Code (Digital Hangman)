@@ -160,7 +160,7 @@ void checkGameState() {
   if (attempts <= 0) {
     gameOver = true;
     lcd.clear();
-    lcd.print("YOU LOSE! Ans: ");
+    lcd.print("YOU LOSE! ");
     lcd.setCursor(0, 1);
     lcd.print(secretWord);
     lcd.print(" S:"); lcd.print(score);
