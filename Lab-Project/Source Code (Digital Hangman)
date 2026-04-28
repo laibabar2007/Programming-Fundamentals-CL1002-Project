@@ -8,7 +8,7 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);
 
 // ── Pin config ───────────────────────────────────────────────
 const int buzzerPin       = 8;
-const int resetButtonPin  = 2;
+const int resetButtonPin  = 7;
 
 // ── Word pool ────────────────────────────────────────────────
 const int WORD_COUNT = 10;
