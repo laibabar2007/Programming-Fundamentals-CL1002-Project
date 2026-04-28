@@ -1,10 +1,12 @@
 // ============================================================
-//  DIGITAL HANGMAN  —  Final Hardware Version
+//  DIGITAL HANGMAN — 16x2 LCD Optimized Version
 //  Hardware : Arduino + 16x2 I2C LCD + Buzzer + Reset Button
 // ============================================================
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
-LiquidCrystal_I2C lcd(0x27, 20, 4);
+
+// Set for 16 columns and 2 rows
+LiquidCrystal_I2C lcd(0x27, 16, 2); 
 
 // ── Pin config ───────────────────────────────────────────────
 const int buzzerPin       = 8;
@@ -31,10 +33,9 @@ int  deductPer  = 10;
 
 // ── Timer ────────────────────────────────────────────────────
 const unsigned long TURN_LIMIT_MS = 15000UL;
-unsigned long turnStart  = 0;
-bool timerRunning        = false;
+unsigned long turnStart   = 0;
+bool timerRunning         = false;
 
-// ────────────────────────────────────────────────────────────
 void setup() {
   Serial.begin(9600);
   lcd.init();
@@ -46,9 +47,7 @@ void setup() {
   showStart();
 }
 
-// ────────────────────────────────────────────────────────────
 void loop() {
-  // Reset button
   if (digitalRead(resetButtonPin) == LOW) {
     delay(50);
     if (digitalRead(resetButtonPin) == LOW) {
@@ -59,22 +58,14 @@ void loop() {
 
   if (gameOver) return;
 
-  // Timer countdown
   if (timerRunning) {
     unsigned long elapsed = millis() - turnStart;
     if (elapsed >= TURN_LIMIT_MS) {
       handleTimeout();
       return;
     }
-    int secsLeft = (int)((TURN_LIMIT_MS - elapsed) / 1000UL) + 1;
-    lcd.setCursor(0, 3);
-    lcd.print("Time: ");
-    if (secsLeft < 10) lcd.print(" ");
-    lcd.print(secsLeft);
-    lcd.print("s   ");
   }
 
-  // Serial input
   if (Serial.available() > 0) {
     char guess = toupper((char)Serial.read());
     while (Serial.available() > 0) Serial.read(); 
@@ -87,31 +78,28 @@ void loop() {
 void startNewGame() {
   int idx    = random(0, WORD_COUNT);
   secretWord = wordPool[idx];
-
-  guessed        = "";
+  guessed    = "";
   guessedLetters = "";
   for (int i = 0; i < (int)secretWord.length(); i++) guessed += '_';
-
   attempts  = 6;
   gameOver  = false;
   score     = 100;
   deductPer = max(5, 60 / (int)secretWord.length());
-
   startTimer();
 }
 
 void processGuess(char guess) {
   if (guessedLetters.indexOf(guess) >= 0) {
-    lcd.setCursor(0, 2);
-    lcd.print("Already tried: ");
+    lcd.setCursor(0, 1);
+    lcd.print("Already used: ");
     lcd.print(guess);
-    lcd.print("  ");
     tone(buzzerPin, 600, 100);
+    delay(800); // Give time to read on small screen
+    printStatus();
     return;
   }
 
   guessedLetters += guess;
-
   bool correct = false;
   for (int i = 0; i < (int)secretWord.length(); i++) {
     if (secretWord[i] == guess && guessed[i] == '_') {
@@ -129,7 +117,6 @@ void processGuess(char guess) {
     tone(buzzerPin, 300, 300);
   }
 
-  delay(350);
   checkGameState();
   if (!gameOver) {
     printStatus();
@@ -142,15 +129,11 @@ void handleTimeout() {
   attempts--; 
   score -= deductPer;
   if (score < 0) score = 0;
-
   revealHint();
   tone(buzzerPin, 250, 400);
-
   lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Time's up! -hint");
+  lcd.print("TIME OUT! +HINT");
   delay(1200);
-
   checkGameState();
   if (!gameOver) {
     printStatus();
@@ -165,87 +148,64 @@ void revealHint() {
     if (guessed[i] == '_') positions[count++] = i;
   }
   if (count == 0) return;
-
   int pick   = positions[random(0, count)];
   char hintC = secretWord[pick];
-
   for (int i = 0; i < (int)secretWord.length(); i++) {
     if (secretWord[i] == hintC) guessed[i] = hintC;
   }
   if (guessedLetters.indexOf(hintC) < 0) guessedLetters += hintC;
 }
 
-// ── FIXED Game State Logic ──────────────────────────────────
 void checkGameState() {
-  // Check Lose Condition FIRST
   if (attempts <= 0) {
     gameOver = true;
     lcd.clear();
-    lcd.setCursor(4, 0);
-    lcd.print("YOU LOSE!");
+    lcd.print("YOU LOSE! Ans: ");
     lcd.setCursor(0, 1);
-    lcd.print("Ans: "); lcd.print(secretWord);
-    lcd.setCursor(0, 2);
-    lcd.print("Score: "); lcd.print(score);
-    lcd.setCursor(0, 3);
-    lcd.print("Best:  "); lcd.print(highScore);
-    loseSound(); // This triggers the losing buzzer melody
+    lcd.print(secretWord);
+    lcd.print(" S:"); lcd.print(score);
+    loseSound();
   } 
-  // Check Win Condition SECOND
   else if (guessed == secretWord) {
     gameOver = true;
     if (score > highScore) highScore = score;
     lcd.clear();
-    lcd.setCursor(1, 0);
-    lcd.print("** YOU WIN! **");
+    lcd.print("WIN! Score:"); lcd.print(score);
     lcd.setCursor(0, 1);
-    lcd.print("Word:"); lcd.print(secretWord);
-    lcd.setCursor(0, 2);
-    lcd.print("Score: "); lcd.print(score);
-    lcd.setCursor(0, 3);
-    lcd.print("Best:  "); lcd.print(highScore);
+    lcd.print("Best:"); lcd.print(highScore);
     winSound();
   }
 }
 
 void printStatus() {
   lcd.clear();
+  // Line 0: Word display
   lcd.setCursor(0, 0);
-  lcd.print("Word: ");
-  lcd.print(guessed);
+  lcd.print("WORD:"); lcd.print(guessed);
+  
+  // Line 1: Stats
   lcd.setCursor(0, 1);
   lcd.print("Att:"); lcd.print(attempts);
-  lcd.print("  Pts:"); lcd.print(score);
-  lcd.setCursor(0, 2);
-  lcd.print("Tried:");
-  lcd.print(guessedLetters);
-  lcd.setCursor(0, 3);
-  lcd.print("Time: 15s   ");
+  lcd.print(" Pts:"); lcd.print(score);
+
 }
 
 void resetGame() {
   while (Serial.available() > 0) Serial.read();
   startNewGame();
   lcd.clear();
-  lcd.setCursor(4, 0);
-  lcd.print("NEW GAME!");
-  lcd.setCursor(4, 1);
-  lcd.print("Best: "); lcd.print(highScore);
-  delay(1200);
+  lcd.print("NEW GAME");
+  delay(1500);
   printStatus();
 }
 
 void showStart() {
   lcd.clear();
-  lcd.setCursor(4, 0);
-  lcd.print("*DIGITAL");
-  lcd.setCursor(5, 1);
-  lcd.print("HANGMAN*");
-  lcd.setCursor(2, 2);
-  lcd.print("Send letter via");
-  lcd.setCursor(3, 3);
-  lcd.print("Serial Monitor");
-  delay(4000);
+  lcd.setCursor(3, 0);
+  lcd.print("*DIGITAL*");
+  lcd.setCursor(3, 1);
+  lcd.print("*HANGMAN*");
+  delay(3000);
   printStatus();
 }
 
